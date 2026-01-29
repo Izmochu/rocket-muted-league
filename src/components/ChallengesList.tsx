@@ -1,5 +1,10 @@
-import { Challenge } from "@/lib/data";
-import { GameCard, GameCardHeader, GameCardTitle, GameCardContent } from "@/components/ui/game-card";
+import { Challenge } from "@/domain/challenge";
+import {
+  GameCard,
+  GameCardHeader,
+  GameCardTitle,
+  GameCardContent,
+} from "@/components/ui/game-card";
 import { GameBadge } from "@/components/ui/game-badge";
 import { Swords, Calendar } from "lucide-react";
 
@@ -8,16 +13,14 @@ interface ChallengesListProps {
   title: string;
 }
 
-function getStatusVariant(status: Challenge["status"]): "primary" | "success" | "warning" | "destructive" {
+function getStatusVariant(
+  status: Challenge["status"]
+): "primary" | "success" | "warning" {
   switch (status) {
     case "pending":
       return "warning";
     case "accepted":
       return "success";
-    case "declined":
-      return "destructive";
-    case "completed":
-      return "primary";
     default:
       return "primary";
   }
@@ -44,6 +47,7 @@ export function ChallengesList({ challenges, title }: ChallengesListProps) {
       <GameCardHeader>
         <GameCardTitle>{title}</GameCardTitle>
       </GameCardHeader>
+
       <GameCardContent className="space-y-3">
         {challenges.map((challenge) => (
           <div
@@ -52,24 +56,26 @@ export function ChallengesList({ challenges, title }: ChallengesListProps) {
           >
             <div className="flex items-center gap-4">
               <Swords className="w-5 h-5 text-primary" />
+
               <div>
                 <p className="font-medium">
-                  <span className="text-primary">{challenge.challenger}</span>
+                  <span className="text-primary">
+                    {challenge.challenger.username}
+                  </span>
                   <span className="text-muted-foreground mx-2">vs</span>
-                  <span>{challenge.challenged}</span>
+                  <span>{challenge.challenged.username}</span>
                 </p>
+
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                   <Calendar className="w-3 h-3" />
-                  <span>Created: {challenge.createdAt}</span>
-                  {challenge.scheduledFor && (
-                    <>
-                      <span>•</span>
-                      <span className="text-primary">Scheduled: {challenge.scheduledFor}</span>
-                    </>
-                  )}
+                  <span>
+                    Created:{" "}
+                    {new Date(challenge.created_at).toLocaleDateString()}
+                  </span>
                 </div>
               </div>
             </div>
+
             <GameBadge variant={getStatusVariant(challenge.status)}>
               {challenge.status}
             </GameBadge>

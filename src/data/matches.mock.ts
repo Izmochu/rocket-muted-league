@@ -1,0 +1,58 @@
+import { Match } from "@/domain/match";
+
+export const matchesMock: Match[] = [
+  {
+    id: "1",
+    date: "2024-01-28",
+    player1: "DemoDevil",
+    player2: "BoostPhantom",
+    score_p1: 5,
+    score_p2: 3,
+    winner: "DemoDevil",
+  },
+  {
+    id: "2",
+    date: "2024-01-27",
+    player1: "TurboBlaze",
+    player2: "AerialAce",
+    score_p1: 4,
+    score_p2: 6,
+    winner: "AerialAce",
+  },
+  {
+    id: "3",
+    date: "2024-01-26",
+    player1: "NitroKing",
+    player2: "ShadowFlick",
+    score_p1: 7,
+    score_p2: 2,
+    winner: "NitroKing",
+  },
+  {
+    id: "4",
+    date: "2024-01-25",
+    player1: "RocketNova",
+    player2: "FlipResetFury",
+    score_p1: 3,
+    score_p2: 5,
+    winner: "FlipResetFury",
+  },
+  {
+    id: "5",
+    date: "2024-01-24",
+    player1: "BoostPhantom",
+    player2: "TurboBlaze",
+    score_p1: 6,
+    score_p2: 4,
+    winner: "BoostPhantom",
+  },
+  {
+    id: "6",
+    date: "2024-01-23",
+    player1: "DemoDevil",
+    player2: "NitroKing",
+    score_p1: 5,
+    score_p2: 5,
+    winner: "DemoDevil",
+  },
+];

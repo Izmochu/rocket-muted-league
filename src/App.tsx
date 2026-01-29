@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Index from "./pages/Index";
 import Players from "./pages/Players";
 import Matches from "./pages/Matches";
@@ -10,6 +11,8 @@ import Challenges from "./pages/Challenges";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+
+import AdminGuard from "@/components/AdminGuard";
 
 const queryClient = new QueryClient();
 
@@ -20,13 +23,24 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Public routes */}
           <Route path="/" element={<Index />} />
           <Route path="/players" element={<Players />} />
           <Route path="/matches" element={<Matches />} />
           <Route path="/challenges" element={<Challenges />} />
-          <Route path="/admin" element={<Admin />} />
           <Route path="/auth" element={<Auth />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+          {/* Protected admin route */}
+          <Route
+            path="/admin"
+            element={
+              <AdminGuard>
+                <Admin />
+              </AdminGuard>
+            }
+          />
+
+          {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -1,0 +1,68 @@
+import { Player } from "@/domain/player";
+
+export const playersMock: Player[] = [
+  {
+    id: "1",
+    username: "DemoDevil",
+    region: "EU-West",
+    rank_1v1: "Supersonic Legend",
+    wins: 67,
+    losses: 8,
+  },
+  {
+    id: "2",
+    username: "BoostPhantom",
+    region: "NA-West",
+    rank_1v1: "Grand Champion II",
+    wins: 55,
+    losses: 12,
+  },
+  {
+    id: "3",
+    username: "TurboBlaze",
+    region: "NA-East",
+    rank_1v1: "Grand Champion I",
+    wins: 42,
+    losses: 15,
+  },
+  {
+    id: "4",
+    username: "NitroKing",
+    region: "NA-East",
+    rank_1v1: "Grand Champion I",
+    wins: 48,
+    losses: 18,
+  },
+  {
+    id: "5",
+    username: "AerialAce",
+    region: "EU-West",
+    rank_1v1: "Champion III",
+    wins: 38,
+    losses: 22,
+  },
+  {
+    id: "6",
+    username: "ShadowFlick",
+    region: "EU-Central",
+    rank_1v1: "Champion II",
+    wins: 29,
+    losses: 31,
+  },
+  {
+    id: "7",
+    username: "RocketNova",
+    region: "OCE",
+    rank_1v1: "Champion I",
+    wins: 25,
+    losses: 28,
+  },
+  {
+    id: "8",
+    username: "FlipResetFury",
+    region: "NA-Central",
+    rank_1v1: "Champion III",
+    wins: 35,
+    losses: 25,
+  },
+];

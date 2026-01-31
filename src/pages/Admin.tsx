@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Layout } from "@/components/Layout";
 import {
@@ -20,7 +20,9 @@ import {
   Pencil,
   Trash2,
   X,
-  Calendar, // Importamos el icono
+  Calendar,
+  Search,
+  CheckCircle2,
 } from "lucide-react";
 
 import {
@@ -65,7 +67,17 @@ export default function Admin() {
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
 
+  // UI State
   const [loading, setLoading] = useState(true);
+  
+  // FILTROS
+  const [playersListFilter, setPlayersListFilter] = useState(""); 
+  const [challengesListFilter, setChallengesListFilter] = useState(""); 
+  const [matchPlayerFilter, setMatchPlayerFilter] = useState(""); 
+  const [challengePlayerFilter, setChallengePlayerFilter] = useState(""); // NUEVO FILTRO CREAR RETO
+
+  // Ref para hacer scroll
+  const matchFormRef = useRef<HTMLDivElement>(null);
 
   /* ---------------- LOAD DATA ---------------- */
 
@@ -180,6 +192,7 @@ export default function Admin() {
     try {
       await createChallenge(challengeForm.challenger_id, challengeForm.challenged_id);
       setChallengeForm({ challenger_id: "", challenged_id: "" });
+      setChallengePlayerFilter(""); // Limpiar filtro
       
       const updated = await getAllChallenges();
       setChallenges(updated);
@@ -199,6 +212,21 @@ export default function Admin() {
     }
   }
 
+  function resolveChallenge(c: Challenge) {
+    setMatchForm({
+      ...matchForm,
+      player1_id: c.challenger_id,
+      player2_id: c.challenged_id,
+      challenge_id: c.id, 
+      score_p1: "",
+      score_p2: ""
+    });
+
+    if (matchFormRef.current) {
+      matchFormRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
   /* ---------------- MATCHES LOGIC ---------------- */
 
   const [matchForm, setMatchForm] = useState({
@@ -206,7 +234,8 @@ export default function Admin() {
     player2_id: "",
     score_p1: "",
     score_p2: "",
-    played_at: "", // NUEVO CAMPO
+    played_at: "",
+    challenge_id: "" as string | undefined,
   });
 
   async function recordMatch() {
@@ -233,22 +262,22 @@ export default function Admin() {
         score_p1: s1,
         score_p2: s2,
         created_by: user.id,
-        // Si hay fecha en el form, la convertimos a ISO, si no, undefined (el servicio pondrá la actual)
         played_at: matchForm.played_at ? new Date(matchForm.played_at).toISOString() : undefined,
+        challenge_id: matchForm.challenge_id || undefined,
       });
 
-      // Reset form
       setMatchForm({ 
         player1_id: "", 
         player2_id: "", 
         score_p1: "", 
         score_p2: "",
-        played_at: "" 
+        played_at: "",
+        challenge_id: undefined 
       });
+      setMatchPlayerFilter(""); 
       
-      const updated = await getMatches();
-      setMatches(updated);
-      alert("Match registrado");
+      loadAllData();
+      alert("Match registrado y reto actualizado (si existía)");
     } catch (e: any) {
       alert(e.message ?? "Error creando match");
     }
@@ -263,6 +292,36 @@ export default function Admin() {
       alert(e.message);
     }
   }
+
+  /* ---------------- FILTROS HELPERS ---------------- */
+
+  const filteredPlayersList = players.filter(p => 
+    p.username.toLowerCase().includes(playersListFilter.toLowerCase()) || 
+    p.region_code?.toLowerCase().includes(playersListFilter.toLowerCase())
+  );
+
+  const filteredChallengesList = challenges.filter(c => 
+    c.challenger?.username.toLowerCase().includes(challengesListFilter.toLowerCase()) ||
+    c.challenged?.username.toLowerCase().includes(challengesListFilter.toLowerCase())
+  );
+
+  // Filtro para MATCHES
+  const getFilteredOptions = (currentSelectedId: string) => {
+    if (!matchPlayerFilter) return players;
+    return players.filter(p => 
+      p.username.toLowerCase().includes(matchPlayerFilter.toLowerCase()) || 
+      p.id === currentSelectedId
+    );
+  };
+
+  // Filtro para CHALLENGES (NUEVO)
+  const getFilteredChallengeOptions = (currentSelectedId: string) => {
+    if (!challengePlayerFilter) return players;
+    return players.filter(p => 
+      p.username.toLowerCase().includes(challengePlayerFilter.toLowerCase()) || 
+      p.id === currentSelectedId
+    );
+  };
 
   /* ---------------- UI ---------------- */
 
@@ -293,6 +352,7 @@ export default function Admin() {
             </GameCardHeader>
 
             <GameCardContent className="space-y-6">
+              {/* FORMULARIO CREAR/EDITAR */}
               <div className="p-4 border rounded-lg bg-muted/20 space-y-4">
                 <div className="flex justify-between items-center">
                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -361,38 +421,51 @@ export default function Admin() {
                 </div>
               </div>
 
-              <div className="rounded-md border bg-background/50">
-                <div className="h-[400px] overflow-y-auto p-2 space-y-2 custom-scrollbar">
-                  {players.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex justify-between items-center p-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-semibold">{p.username}</span>
-                        <div className="text-xs text-muted-foreground flex gap-2">
-                          <span>Epic: {p.epic_id || "N/A"}</span>
-                          <span>•</span>
-                          <span className="text-primary">
-                             {p.region?.name || p.region_code || "Sin Región"}
-                          </span>
-                          <span>•</span>
-                          <span className="text-yellow-500">
-                             {p.rank?.name || "Unranked"}
-                          </span>
+              {/* LISTA PLAYERS (Con Filtro) */}
+              <div className="space-y-2">
+                <div className="relative max-w-sm">
+                  <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground"/>
+                  <Input 
+                    placeholder="Filtrar jugadores..." 
+                    className="pl-8"
+                    value={playersListFilter}
+                    onChange={(e) => setPlayersListFilter(e.target.value)}
+                  />
+                </div>
+
+                <div className="rounded-md border bg-background/50">
+                  <div className="h-[400px] overflow-y-auto p-2 space-y-2 custom-scrollbar">
+                    {filteredPlayersList.map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex justify-between items-center p-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-semibold">{p.username}</span>
+                          <div className="text-xs text-muted-foreground flex gap-2">
+                            <span>Epic: {p.epic_id || "N/A"}</span>
+                            <span>•</span>
+                            <span className="text-primary">
+                              {p.region?.name || p.region_code || "Sin Región"}
+                            </span>
+                            <span>•</span>
+                            <span className="text-yellow-500">
+                              {p.rank?.name || "Unranked"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <GameButton size="icon" variant="ghost" onClick={() => editPlayer(p)}>
+                            <Pencil className="w-4 h-4" />
+                          </GameButton>
+                          <GameButton size="icon" variant="ghost" onClick={() => removePlayer(p.id)}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </GameButton>
                         </div>
                       </div>
-                      <div className="flex gap-1">
-                        <GameButton size="icon" variant="ghost" onClick={() => editPlayer(p)}>
-                          <Pencil className="w-4 h-4" />
-                        </GameButton>
-                        <GameButton size="icon" variant="ghost" onClick={() => removePlayer(p.id)}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </GameButton>
-                      </div>
-                    </div>
-                  ))}
-                  {players.length === 0 && <p className="text-center p-4 text-muted-foreground">No players found.</p>}
+                    ))}
+                    {filteredPlayersList.length === 0 && <p className="text-center p-4 text-muted-foreground">No players found.</p>}
+                  </div>
                 </div>
               </div>
             </GameCardContent>
@@ -406,57 +479,115 @@ export default function Admin() {
               </GameCardTitle>
             </GameCardHeader>
             <GameCardContent className="space-y-6">
-              <div className="grid md:grid-cols-3 gap-4 p-4 border rounded-lg bg-muted/20">
-                <select
-                  className={selectClass}
-                  value={challengeForm.challenger_id}
-                  onChange={(e) => setChallengeForm({ ...challengeForm, challenger_id: e.target.value })}
-                >
-                  <option value="">Desafiante...</option>
-                  {players.map((p) => (
-                    <option key={p.id} value={p.id}>{p.username}</option>
-                  ))}
-                </select>
-                <select
-                  className={selectClass}
-                  value={challengeForm.challenged_id}
-                  onChange={(e) => setChallengeForm({ ...challengeForm, challenged_id: e.target.value })}
-                >
-                  <option value="">Desafiado...</option>
-                  {players.map((p) => (
-                    <option key={p.id} value={p.id}>{p.username}</option>
-                  ))}
-                </select>
-                <GameButton onClick={handleCreateChallenge}>
-                  <Plus className="w-4 h-4 mr-2" /> Crear Reto
-                </GameButton>
+              
+              {/* CREAR CHALLENGE (Con nuevo filtro) */}
+              <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                 <div className="relative mb-2">
+                    <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground"/>
+                    <Input
+                       placeholder="Filtrar jugadores para nuevo reto..."
+                       className="pl-8 bg-background"
+                       value={challengePlayerFilter}
+                       onChange={(e) => setChallengePlayerFilter(e.target.value)}
+                    />
+                 </div>
+
+                 <div className="grid md:grid-cols-3 gap-4">
+                  <select
+                    className={selectClass}
+                    value={challengeForm.challenger_id}
+                    onChange={(e) => setChallengeForm({ ...challengeForm, challenger_id: e.target.value })}
+                  >
+                    <option value="">Desafiante...</option>
+                    {getFilteredChallengeOptions(challengeForm.challenger_id).map((p) => (
+                      <option key={p.id} value={p.id}>{p.username}</option>
+                    ))}
+                  </select>
+                  <select
+                    className={selectClass}
+                    value={challengeForm.challenged_id}
+                    onChange={(e) => setChallengeForm({ ...challengeForm, challenged_id: e.target.value })}
+                  >
+                    <option value="">Desafiado...</option>
+                    {getFilteredChallengeOptions(challengeForm.challenged_id).map((p) => (
+                      <option key={p.id} value={p.id}>{p.username}</option>
+                    ))}
+                  </select>
+                  <GameButton onClick={handleCreateChallenge}>
+                    <Plus className="w-4 h-4 mr-2" /> Crear Reto
+                  </GameButton>
+                </div>
               </div>
 
-              <div className="rounded-md border bg-background/50">
-                 <div className="h-[300px] overflow-y-auto p-2 space-y-2 custom-scrollbar">
-                    {challenges.map(c => (
-                      <div key={c.id} className="flex justify-between items-center p-3 rounded-md bg-muted/30">
-                        <div className="text-sm">
-                           <span className="font-bold text-primary">{c.challenger?.username ?? "Unknown"}</span>
-                           <span className="mx-2 text-muted-foreground">vs</span>
-                           <span className="font-bold text-destructive">{c.challenged?.username ?? "Unknown"}</span>
-                           <div className="text-xs text-muted-foreground mt-1">
-                             Status: <span className="uppercase text-foreground">{c.status}</span> • {new Date(c.created_at).toLocaleDateString()}
-                           </div>
+              {/* LISTA CHALLENGES (Con Filtro) */}
+              <div className="space-y-2">
+                <div className="relative max-w-sm">
+                   <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground"/>
+                   <Input 
+                     placeholder="Filtrar retos por nombre..." 
+                     className="pl-8"
+                     value={challengesListFilter}
+                     onChange={(e) => setChallengesListFilter(e.target.value)}
+                   />
+                </div>
+
+                <div className="rounded-md border bg-background/50">
+                   <div className="h-[300px] overflow-y-auto p-2 space-y-2 custom-scrollbar">
+                      {filteredChallengesList.map(c => (
+                        <div key={c.id} className="flex justify-between items-center p-3 rounded-md bg-muted/30">
+                          <div className="text-sm">
+                             {/* INFO JUGADOR 1 */}
+                             <span className="font-bold text-primary">
+                               {c.challenger?.username ?? "Unknown"}
+                             </span>
+                             <span className="text-xs text-muted-foreground ml-1">
+                               ({c.challenger?.region?.name ?? "N/A"})
+                             </span>
+
+                             <span className="mx-2 text-muted-foreground">vs</span>
+
+                             {/* INFO JUGADOR 2 */}
+                             <span className="font-bold text-destructive">
+                               {c.challenged?.username ?? "Unknown"}
+                             </span>
+                             <span className="text-xs text-muted-foreground ml-1">
+                               ({c.challenged?.region?.name ?? "N/A"})
+                             </span>
+
+                             <div className="text-xs text-muted-foreground mt-1">
+                               Status: <span className="uppercase text-foreground">{c.status}</span> • {new Date(c.created_at).toLocaleDateString()}
+                             </div>
+                          </div>
+                          
+                          <div className="flex gap-2">
+                             {/* BOTON RESOLVER */}
+                             {c.status !== "played" && (
+                                <GameButton 
+                                  size="sm" 
+                                  variant="glow" 
+                                  className="h-8"
+                                  title="Resolver: Crear partido con estos jugadores"
+                                  onClick={() => resolveChallenge(c)}
+                                >
+                                  <CheckCircle2 className="w-4 h-4 mr-1"/> Resolve
+                                </GameButton>
+                             )}
+
+                             <GameButton size="icon" variant="ghost" onClick={() => removeChallenge(c.id)}>
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                             </GameButton>
+                          </div>
                         </div>
-                        <GameButton size="icon" variant="ghost" onClick={() => removeChallenge(c.id)}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                        </GameButton>
-                      </div>
-                    ))}
-                    {challenges.length === 0 && <p className="text-center p-4 text-muted-foreground">No challenges found.</p>}
-                 </div>
+                      ))}
+                      {filteredChallengesList.length === 0 && <p className="text-center p-4 text-muted-foreground">No challenges found.</p>}
+                   </div>
+                </div>
               </div>
             </GameCardContent>
           </GameCard>
 
           {/* ================= MATCHES ================= */}
-          <GameCard>
+          <GameCard ref={matchFormRef} className="scroll-mt-24">
             <GameCardHeader>
               <GameCardTitle className="flex gap-2 items-center">
                 <Swords className="w-5 h-5" /> Matches ({matches.length})
@@ -465,57 +596,82 @@ export default function Admin() {
 
             <GameCardContent className="space-y-6">
               {/* CREAR MATCH */}
-              <div className="grid md:grid-cols-4 gap-4 p-4 border rounded-lg bg-muted/20">
-                <select
-                  className={selectClass}
-                  value={matchForm.player1_id}
-                  onChange={(e) => setMatchForm({ ...matchForm, player1_id: e.target.value })}
-                >
-                  <option value="">Player 1</option>
-                  {players.map((p) => <option key={p.id} value={p.id}>{p.username}</option>)}
-                </select>
-
-                <select
-                  className={selectClass}
-                  value={matchForm.player2_id}
-                  onChange={(e) => setMatchForm({ ...matchForm, player2_id: e.target.value })}
-                >
-                  <option value="">Player 2</option>
-                  {players.map((p) => <option key={p.id} value={p.id}>{p.username}</option>)}
-                </select>
-
-                <Input
-                  type="number"
-                  placeholder="Score P1"
-                  value={matchForm.score_p1}
-                  onChange={(e) => setMatchForm({ ...matchForm, score_p1: e.target.value })}
-                />
-                <Input
-                  type="number"
-                  placeholder="Score P2"
-                  value={matchForm.score_p2}
-                  onChange={(e) => setMatchForm({ ...matchForm, score_p2: e.target.value })}
-                />
+              <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                 
-                {/* SELECTOR DE FECHA OPCIONAL */}
-                <div className="md:col-span-2 relative">
-                   <div className="flex items-center gap-2 mb-1">
-                      <Calendar className="w-4 h-4 text-muted-foreground"/>
-                      <span className="text-xs text-muted-foreground">Fecha (Opcional - por defecto HOY)</span>
-                   </div>
+                {/* FILTRO PARA SELECTORES DE MATCHES */}
+                <div className="relative mb-2">
+                   <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground"/>
                    <Input
-                    type="datetime-local"
-                    value={matchForm.played_at}
-                    onChange={(e) => setMatchForm({ ...matchForm, played_at: e.target.value })}
-                    className="w-full"
-                  />
+                      placeholder="Filtrar jugadores en los selectores..."
+                      className="pl-8 bg-background"
+                      value={matchPlayerFilter}
+                      onChange={(e) => setMatchPlayerFilter(e.target.value)}
+                   />
                 </div>
 
-                <div className="md:col-span-2 flex items-end">
-                  <GameButton className="w-full" onClick={recordMatch}>
-                    <Swords className="w-4 h-4 mr-2" /> Registrar Resultado
-                  </GameButton>
+                <div className="grid md:grid-cols-4 gap-4">
+                  <select
+                    className={selectClass}
+                    value={matchForm.player1_id}
+                    onChange={(e) => setMatchForm({ ...matchForm, player1_id: e.target.value })}
+                  >
+                    <option value="">Player 1...</option>
+                    {getFilteredOptions(matchForm.player1_id).map((p) => (
+                      <option key={p.id} value={p.id}>{p.username}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    className={selectClass}
+                    value={matchForm.player2_id}
+                    onChange={(e) => setMatchForm({ ...matchForm, player2_id: e.target.value })}
+                  >
+                    <option value="">Player 2...</option>
+                    {getFilteredOptions(matchForm.player2_id).map((p) => (
+                      <option key={p.id} value={p.id}>{p.username}</option>
+                    ))}
+                  </select>
+
+                  <Input
+                    type="number"
+                    placeholder="Score P1"
+                    value={matchForm.score_p1}
+                    onChange={(e) => setMatchForm({ ...matchForm, score_p1: e.target.value })}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Score P2"
+                    value={matchForm.score_p2}
+                    onChange={(e) => setMatchForm({ ...matchForm, score_p2: e.target.value })}
+                  />
+                  
+                  {/* SELECTOR DE FECHA OPCIONAL */}
+                  <div className="md:col-span-2 relative">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Calendar className="w-4 h-4 text-muted-foreground"/>
+                        <span className="text-xs text-muted-foreground">Fecha (Opcional - por defecto HOY)</span>
+                    </div>
+                    <Input
+                      type="datetime-local"
+                      value={matchForm.played_at}
+                      onChange={(e) => setMatchForm({ ...matchForm, played_at: e.target.value })}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 flex items-end">
+                    <GameButton className="w-full" onClick={recordMatch}>
+                      <Swords className="w-4 h-4 mr-2" /> Registrar Resultado
+                    </GameButton>
+                  </div>
                 </div>
+
+                {matchForm.challenge_id && (
+                  <div className="text-xs text-green-400 flex items-center bg-green-950/30 p-2 rounded">
+                    <CheckCircle2 className="w-3 h-3 mr-1"/>
+                    Este partido resolverá un Challenge activo.
+                  </div>
+                )}
               </div>
 
               {/* LISTA MATCHES */}

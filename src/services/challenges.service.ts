@@ -4,9 +4,16 @@ import { supabase } from "@/lib/supabase";
    TYPES
 ================================ */
 
+type RegionRef = {
+  code: string;
+  name: string;
+};
+
 type PlayerRef = {
   id: string;
   username: string;
+  // Añadimos la relación con región
+  region?: RegionRef | null;
 };
 
 export type Challenge = {
@@ -41,29 +48,49 @@ export async function createChallenge(
    READ
 ================================ */
 
-// Para el Admin: Ver TODOS
+// Para el Admin: Ver TODOS con Regiones
 export async function getAllChallenges(): Promise<Challenge[]> {
-  // AQUI EL CAMBIO: Usamos challenges_challenger_fk y challenges_challenged_fk
   const { data, error } = await supabase
     .from("challenges")
     .select(`
       *,
-      challenger:players!challenges_challenger_fk ( id, username ),
-      challenged:players!challenges_challenged_fk ( id, username )
+      challenger:players!challenges_challenger_fk ( 
+        id, 
+        username,
+        region:regions!players_region_fkey ( code, name )
+      ),
+      challenged:players!challenges_challenged_fk ( 
+        id, 
+        username,
+        region:regions!players_region_fkey ( code, name )
+      )
     `)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
   
+  // Aplanamos la estructura arrays que a veces devuelve supabase
   return (data ?? []).map((c: any) => ({
     ...c,
     challenger: Array.isArray(c.challenger) ? c.challenger[0] : c.challenger,
     challenged: Array.isArray(c.challenged) ? c.challenged[0] : c.challenged,
+    // Aseguramos que las regiones dentro de los players también estén planas si son arrays
+    ...(c.challenger && {
+       challenger: {
+         ...c.challenger,
+         region: Array.isArray(c.challenger.region) ? c.challenger.region[0] : c.challenger.region
+       }
+    }),
+    ...(c.challenged && {
+      challenged: {
+        ...c.challenged,
+        region: Array.isArray(c.challenged.region) ? c.challenged.region[0] : c.challenged.region
+      }
+   })
   }));
 }
 
 export async function getPendingChallenges(): Promise<Challenge[]> {
-  // AQUI TAMBIEN
   const { data, error } = await supabase
     .from("challenges")
     .select(`
@@ -84,7 +111,6 @@ export async function getPendingChallenges(): Promise<Challenge[]> {
 }
 
 export async function getAcceptedChallenges(): Promise<Challenge[]> {
-  // Y AQUI TAMBIEN
   const { data, error } = await supabase
     .from("challenges")
     .select(`
